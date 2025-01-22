@@ -4,6 +4,7 @@ from flask import Flask, request, redirect, session, url_for
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from urllib.parse import urlparse
+import json
 
 
 #SSO : Signle Sign on
@@ -13,13 +14,40 @@ from urllib.parse import urlparse
 
 app = Flask(__name__)
 
+# Clé cryptographique utilise pour ssigner les sessions utilisateur
+# Proteger contre les attaques csrf
+# Securiser les cookies
+# Pour la production utiliser une clé  fixe stockée dans une variable d'environnement
+
+app.secret_key = os.urandom(32)
+
 app.config["SAML_PATH"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saml")
 
 
 
 def init_saml_auth(req):
     #Initialize with settings.json & advanced_settings.json file
-    auth = OneLogin_saml2_Auth(req, custom_base_path = app.config["SAML_PATH"])
+
+
+    with open('samlsettings.json', 'r') as f : 
+        saml_settings = json.load(f)
+    
+    with open('certs/idp-certificate.pem', 'r') as   idp_cert_file :
+        idp_cert = idp_cert_file.read()
+    
+    with open('certs/sp-certificate.pem', 'r') as   sp_cert_file :
+        sp_cert = sp_cert_file.read()
+    
+    with open('certs/sp-private-key.pem', 'r') as   sp_key_file :
+        sp_key = sp_key_file.read()
+
+    saml_settings["sp"]["x509cert"] = sp_cert.strip()
+    saml_settings["sp"]["privateKey"] = sp_key.strip()
+    saml_settings["idp"]["x509cert"] = idp_cert.strip()
+
+
+    auth = OneLogin_Saml2_Auth(req, saml_settings)
+    
     return auth
 
 
@@ -40,7 +68,7 @@ def preprare_flask_request(request):
     return {
         "https": "on" if request.scheme == "https" else "off",  # Indicate if request is secure
         "http_host" : request.host,                             # Server hostname
-        "server-port" : request.url.port,                       # Port number
+        "server_port" : "8080",                       # Port number
         "script_name": request.path,                            # URL path
         "get_data": request.args.copy(),                        # GET parameters
         "post_data": request.form.copy(),                       # POST parameters
@@ -67,7 +95,7 @@ def index():
 @app.route('/login')
 def login():
     req = preprare_flask_request(request)
-    auth = init_saml_auth()
+    auth = init_saml_auth(req)
     return redirect(auth.login())
 
 
