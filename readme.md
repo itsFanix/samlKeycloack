@@ -87,3 +87,9 @@ j'ai vérifier le certificat avec openssl x509 -in certs/idp-certificate.pem -te
 
 
       //Public certificate of the IdP
+
+
+
+
+
+signatureAlgorithme not working

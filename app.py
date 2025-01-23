@@ -29,16 +29,23 @@ def init_saml_auth(req):
     #Initialize with settings.json & advanced_settings.json file
 
 
-    with open('samlsettings.json', 'r') as f : 
-        saml_settings = json.load(f)
+    with open('saml/settings.json', 'r') as f : 
+        main_settings = json.load(f)
     
-    with open('certs/idp-certificate.pem', 'r') as   idp_cert_file :
+    with open("saml/advanced_settings.json") as f :
+        advanced_settings= json.load(f)
+
+    
+    saml_settings ={**main_settings, **advanced_settings}
+
+    
+    with open('saml/certs/idp-certificate.pem', 'r') as   idp_cert_file :
         idp_cert = idp_cert_file.read()
     
-    with open('certs/sp-certificate.pem', 'r') as   sp_cert_file :
+    with open('saml/certs/sp-certificate.pem', 'r') as   sp_cert_file :
         sp_cert = sp_cert_file.read()
     
-    with open('certs/sp-private-key.pem', 'r') as   sp_key_file :
+    with open('saml/certs/sp-private-key.pem', 'r') as   sp_key_file :
         sp_key = sp_key_file.read()
 
     saml_settings["sp"]["x509cert"] = sp_cert.strip()
@@ -64,11 +71,12 @@ def init_saml_auth(req):
     # Logout request
     # Single Logout Service (SLS) handling
 
-def preprare_flask_request(request):
+def prepare_flask_request(request):
+    print(request)
     return {
         "https": "on" if request.scheme == "https" else "off",  # Indicate if request is secure
         "http_host" : request.host,                             # Server hostname
-        "server_port" : "8080",                       # Port number
+        "server_port" : request.environ.get("SERVER_PORT"),                       # Port number
         "script_name": request.path,                            # URL path
         "get_data": request.args.copy(),                        # GET parameters
         "post_data": request.form.copy(),                       # POST parameters
@@ -87,14 +95,15 @@ def index():
     
     return f"""
 
-    <h2>Welcome, {session['samlUserdata'].get('username',  'User')}</h2>
+    <h2>Welcome, {session['samlUserdata']}</h2>
     <a href="{url_for('logout')}">Logout</a>
     """
 
 
 @app.route('/login')
 def login():
-    req = preprare_flask_request(request)
+    
+    req = prepare_flask_request(request)
     auth = init_saml_auth(req)
     return redirect(auth.login())
 
@@ -110,7 +119,7 @@ def login():
 def acs():
 
     # Convert Flask reauest to SAML-compatible format
-    req = preprare_flask_request(request)
+    req = prepare_flask_request(request)
 
     # Initialize SAML auth with the request
     auth = init_saml_auth(req)
@@ -130,8 +139,9 @@ def acs():
         
 
         # Handle RelayState (Where to redirect after login)
-        if 'RelayState' in request.form and request.form['RelayState']:
-            return redirect(auth.rediredt_to(request.form['RelayState']))
+        # if 'RelayState' in request.form and request.form['RelayState']:
+            #  return redirect(auth.redirect_to(request.form['RelayState']))
+        # else :
         return redirect(url_for('index'))
     
     return f"Error: {', '.join(errors)}"
@@ -154,13 +164,13 @@ def acs():
 def logout():
 
     # Convert Flask request to SAML for format 
-    req = preprare_flask_request(request)
+    req = prepare_flask_request(request)
 
     # Initialize SAML auth object 
     auth = init_saml_auth(req)
 
     # Get the user's Name ID from session
-    name_id = session.Get('samlNameId')
+    name_id = session.get('samlNameId')
     
     # Clear the Flask session
     session.clear()
@@ -186,7 +196,7 @@ def logout():
 def sls():
 
     # Convert Flask request to SAML for format 
-    req = preprare_flask_request(request)
+    req = prepare_flask_request(request)
 
     # Initialize SAML auth object 
     auth = init_saml_auth(req)

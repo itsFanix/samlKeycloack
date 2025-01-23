@@ -1,6 +1,6 @@
 {
  
-    "strict" : false,
+    "strict" : true,
 
     
      "debug" : true,
@@ -8,14 +8,10 @@
 
     "sp": {
         
-
         "entityId" : "flask_App",
-
-
         "assertionConsumerService": {
-            
+        
             "url" : "http://localhost:5000/acs",
-
             "binding" : "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
 
         },
@@ -64,7 +60,7 @@
         },
         
         "x509cert" : ""
-       
-
+    
     }
+    
 }
